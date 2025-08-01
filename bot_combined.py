@@ -6,7 +6,7 @@ from threading import Thread
 BOT_TOKEN = "8324637176:AAFeKHN29fpeGA4b7w5RfvSgrOH8LRkCYmY"
 ADMIN_ID = 7459795138
 YOUTUBE_CHANNEL = "https://youtube.com/@kishorsinhzala.?si=uKMVwnB7wV_yoSQN"
-TELEGRAM_GROUP = "https://telegram.me//boomupbot10"
+TELEGRAM_GROUP = "@boomupbot10"
 # ========== KEEP ALIVE (for Replit) ==========
 app = Flask('')
 @app.route('/')
