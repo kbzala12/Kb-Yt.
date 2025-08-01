@@ -109,8 +109,8 @@ def handle_all(message):
     text = message.text
 
     if text == "🎥 वीडियो देखा":
-VIDEO_LIBRARY = [
-    {"url": "https://youtu.be/G2YCGapVbEc?si=OOfd-eH3a75Dsi9S", "code": "BOOST1"},
+VIDEO_LIBRARY = 
+[{"url": "https://youtu.be/G2YCGapVbEc?si=OOfd-eH3a75Dsi9S", "code": "BOOST1"},
     {"url": "https://youtube.com/shorts/KP7TXFpTCeI?si=xRVrDsy53OnCwDcN", "code": "BOOM2"},
     {"url": "https://youtube.com/shorts/dVUy6aWYgHI?si=-ffnsKllf4Kl-BMM", "code": "REACH3"},
     {"url": "https://youtu.be/SWMtSEvaiFU", "code": "ZALA4"},
@@ -119,8 +119,8 @@ VIDEO_LIBRARY = [
     {"url": "https://youtu.be/VID7", "code": "KISHOR7"},
     {"url": "https://youtu.be/VID8", "code": "TREND8"},
     {"url": "https://youtu.be/VID9", "code": "ROCKET9"},
-    {"url": "https://youtu.be/VID10", "code": "BOOMUP10"}
-]
+    {"url": "https://youtu.be/VID10", "code": "BOOMUP10"}]
+
         if add_points(user_id, "videos", 10, 1, 10):
             bot.reply_to(message, "✅ आपने 1 वीडियो देखा, +10 पॉइंट्स!")
         else:
@@ -141,8 +141,7 @@ Total Points: {u['points']}
 🔗 Referrals: {u['ref']}""")
 
     elif text == "🔗 रेफरल लिंक":
-        bot.reply_to(message, f"🔗 आपका रेफरल लिंक:\https://@Hkzyt_bot?start= USER_ID
-
+        bot.reply_to(message, f"🔗 आपका रेफरल लिंक:\https://t.me/Hkzyt_bot?start=123456789
     elif text == "🎯 प्रमोशन सबमिट":
         u = get_user(user_id)
         if u['points'] >= 1000:
