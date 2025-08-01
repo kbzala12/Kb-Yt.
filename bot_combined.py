@@ -7,6 +7,18 @@ BOT_TOKEN = "8324637176:AAFeKHN29fpeGA4b7w5RfvSgrOH8LRkCYmY"
 ADMIN_ID = 7459795138
 YOUTUBE_CHANNEL = "https://youtube.com/@kishorsinhzala.?si=uKMVwnB7wV_yoSQN"
 TELEGRAM_GROUP = "@boomupbot10"
+VIDEO_LIBRARY = [
+    {"url": "https://youtu.be/G2YCGapVbEc?si=OOfd-eH3a75Dsi9S", "code": "BOOST1"},
+    {"url": "https://youtube.com/shorts/KP7TXFpTCeI?si=xRVrDsy53OnCwDcN", "code": "BOOM2"},
+    {"url": "https://youtube.com/shorts/dVUy6aWYgHI?si=-ffnsKllf4Kl-BMM", "code": "REACH3"},
+    {"url": "https://youtu.be/SWMtSEvaiFU", "code": "ZALA4"},
+    {"url": "https://youtu.be/VID5", "code": "XTRA5"},
+    {"url": "https://youtu.be/VID6", "code": "BOOM6"},
+    {"url": "https://youtu.be/VID7", "code": "KISHOR7"},
+    {"url": "https://youtu.be/VID8", "code": "TREND8"},
+    {"url": "https://youtu.be/VID9", "code": "ROCKET9"},
+    {"url": "https://youtu.be/VID10", "code": "BOOMUP10"}
+]
 # ========== KEEP ALIVE (for Replit) ==========
 app = Flask('')
 @app.route('/')
