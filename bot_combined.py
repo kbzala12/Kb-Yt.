@@ -130,7 +130,7 @@ Total Points: {u['points']}
 🔗 Referrals: {u['ref']}""")
 
     elif text == "🔗 रेफरल लिंक":
-        bot.reply_to(message, f"🔗 आपका रेफरल लिंक:\https://t.me/Hkzyt_bot?start=7459795138
+        bot.reply_to(message, f"🔗 आपका रेफरल लिंक://https://t.me/Hkzyt_bot?start=74597951388
     elif text == "🎯 प्रमोशन सबमिट":
         u = get_user(user_id)
         if u['points'] >= 1000:
