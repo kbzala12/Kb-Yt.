@@ -3,7 +3,7 @@ from flask import Flask
 from threading import Thread
 
 # ========== CONFIG ==========
-BOT_TOKEN = "YOUR_BOT_TOKEN"
+BOT_TOKEN = "8192810260:AAFfhjDfNywZIzkrlVmtAuKFL5_E-ZnsOmU"
 ADMIN_ID = 7459795138
 TELEGRAM_GROUP = "@boomupbot10"
 
@@ -15,7 +15,7 @@ VIDEO_CODES = {
     "hindi007": "https://youtu.be/smWCVRNMqh0?si=hBmNoBIMyLLKCoM2"
 }
 
-bot = telebot.TeleBot(BOT_TOKEN)
+bot = telebot.TeleBot(8192810260:AAFfhjDfNywZIzkrlVmtAuKFL5_E-ZnsOmU)
 
 # ========== KEEP ALIVE ==========
 app = Flask('')
