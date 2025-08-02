@@ -1,5 +1,4 @@
-
-import telebot, sqlite3, os
+import telebot, sqlite3, os, time
 from flask import Flask
 from threading import Thread
 
@@ -18,7 +17,7 @@ VIDEO_CODES = {
     "hindi007": "https://youtu.be/smWCVRNMqh0?si=hBmNoBIMyLLKCoM2"
 }
 
-# ========== KEEP ALIVE (for Replit) ==========
+# ========== KEEP ALIVE ==========
 app = Flask('')
 @app.route('/')
 def home(): return "Bot is running"
@@ -91,7 +90,7 @@ def is_user_in_channel(user_id):
 
 def main_menu():
     menu = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
-    menu.row("🎥 वीडियो देखा", "📤 शेयर किया")
+    menu.row("🎥 वीडियो देखा", "🎁 Gift")
     menu.row("📊 मेरी जानकारी", "🔗 रेफरल लिंक")
     menu.row("🎯 प्रमोशन सबमिट")
     return menu
@@ -113,7 +112,7 @@ def start(message):
         apply_referral(user_id, ref_id)
 
     bot.send_message(message.chat.id,
-        f"👋 Welcome to BoomUp Bot!\n\n🎥 Watch = 10 pts\n📤 Share = 25 pts\n🔗 Referral = 50 pts\n🎯 Promote @ 1000 pts\n\n📺 {YOUTUBE_CHANNEL}\n💬 {TELEGRAM_GROUP}",
+        f"👋 Welcome to BoomUp Bot!\n\n🎥 Watch = 10 pts\n🎁 Gift = 25 pts\n🔗 Referral = 50 pts\n🎯 Promote @ 1000 pts\n\n📺 {YOUTUBE_CHANNEL}\n💬 {TELEGRAM_GROUP}",
         reply_markup=main_menu())
 
 @bot.message_handler(func=lambda msg: True)
@@ -123,24 +122,26 @@ def handle_all(message):
     text = message.text
 
     if text == "🎥 वीडियो देखा":
-        msg = "🎥 इन वीडियो को देखो और अंत में दिए गए कोड को भेजो:\n\n"
+        msg = "🎥 नीचे दिए गए वीडियो को पूरा देखें:\n\n"
         for code, link in VIDEO_CODES.items():
             msg += f"🔗 {link}\n"
-        msg += "\n🔑 कोड मिलने पर मुझे भेजो (जैसे: boom123)"
         bot.reply_to(message, msg)
 
-    elif text == "📤 शेयर किया":
+        time.sleep(180)  # 3 मिनट इंतज़ार
+        bot.send_message(message.chat.id, "⏱️ अब आपने वीडियो देख लिया है!\n🔑 कृपया कोड भेजें (जैसे: boom123)")
+
+    elif text == "🎁 Gift":
         if add_points(user_id, "shares", 5, 1, 25):
-            bot.reply_to(message, "✅ शेयर करने के लिए धन्यवाद, +25 पॉइंट्स!")
+            bot.reply_to(message, "🎁 धन्यवाद! आपको 25 पॉइंट्स मिल गए।")
         else:
-            bot.reply_to(message, "❌ आपने 5 शेयर की लिमिट पूरी कर ली है।")
+            bot.reply_to(message, "❌ आपने गिफ्ट की लिमिट पूरी कर ली है।")
 
     elif text == "📊 मेरी जानकारी":
         u = get_user(user_id)
         bot.reply_to(message, f"""📊 आपकी जानकारी:
 Total Points: {u['points']}
 🎥 Videos: {u['videos']}/10
-📤 Shares: {u['shares']}/5
+🎁 Gifts: {u['shares']}/5
 🔗 Referrals: {u['ref']}""")
 
     elif text == "🔗 रेफरल लिंक":
