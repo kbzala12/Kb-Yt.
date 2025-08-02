@@ -199,5 +199,5 @@ def handle_callback(call):
         bot.send_message(user_id, "❌ आपका प्रमोशन लिंक reject कर दिया गया है.")
     bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=None)
 
-print("🤖 Bot is running....")
+print("🤖 Bot is running...")
 bot.infinity_polling()
