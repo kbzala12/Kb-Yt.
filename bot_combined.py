@@ -3,7 +3,7 @@ from flask import Flask
 from threading import Thread
 
 # ========== CONFIG ==========
-BOT_TOKEN = "YOUR_BOT_TOKEN"
+BOT_TOKEN = "8324637176:AAFeKHN29fpeGA4b7w5RfvSgrOH8LRkCYmY"
 ADMIN_ID = 7459795138
 TELEGRAM_GROUP = "@boomupbot10"
 WELCOME_IMAGE_FILE_ID = "YOUR_IMAGE_FILE_ID"
