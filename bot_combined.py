@@ -7,6 +7,16 @@ BOT_TOKEN = "8324637176:AAFeKHN29fpeGA4b7w5RfvSgrOH8LRkCYmY"
 ADMIN_ID = 7459795138
 YOUTUBE_CHANNEL = "https://youtube.com/@kishorsinhzala.?si=uKMVwnB7wV_yoSQN"
 TELEGRAM_GROUP = "@boomupbot10"
+
+# ========== VIDEO CODES ==========
+VIDEO_CODES = {
+    "boom123": "https://youtu.be/QSH5mW7Il00?si=AcLkdNBNSJqGs5y3",
+    "xpress456": "https://youtu.be/cDHi31m0rxI?si=xHUXL54PjtFS-wlN",
+    "kzboom789": "https://youtu.be/k84NTqHakEE?si=q_1FZRrIdjPjWZKa",
+    "flash321": "https://youtu.be/wskpFAMrb6I?si=cx4bYzmwBgY68Qmq",
+    "hindi007": "https://youtu.be/smWCVRNMqh0?si=hBmNoBIMyLLKCoM2"
+}
+
 # ========== KEEP ALIVE (for Replit) ==========
 app = Flask('')
 @app.route('/')
@@ -26,6 +36,13 @@ CREATE TABLE IF NOT EXISTS users (
     shares INTEGER DEFAULT 0,
     ref INTEGER DEFAULT 0,
     referred_by TEXT
+)
+""")
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS redemptions (
+    id TEXT,
+    code TEXT,
+    UNIQUE(id, code)
 )
 """)
 conn.commit()
@@ -59,10 +76,6 @@ def apply_referral(new_user_id, ref_id):
         cursor.execute("UPDATE users SET ref = ref + 1, points = points + 50 WHERE id = ?", (ref_id,))
         cursor.execute("UPDATE users SET referred_by = ? WHERE id = ?", (ref_id, new_user_id))
         conn.commit()
-
-def get_top_users(limit=10):
-    cursor.execute("SELECT id, points FROM users ORDER BY points DESC LIMIT ?", (limit,))
-    return cursor.fetchall()
 
 # ========== TELEGRAM BOT ==========
 bot = telebot.TeleBot(BOT_TOKEN)
@@ -109,11 +122,11 @@ def handle_all(message):
     text = message.text
 
     if text == "🎥 वीडियो देखा":
-
-        if add_points(user_id, "videos", 10, 1, 10):
-            bot.reply_to(message, "✅ आपने 1 वीडियो देखा, +10 पॉइंट्स!")
-        else:
-            bot.reply_to(message, "❌ आपने 10 वीडियो पूरे कर लिए हैं।")
+        msg = "🎥 इन वीडियो को देखो और अंत में दिए गए कोड को भेजो:\n\n"
+        for code, link in VIDEO_CODES.items():
+            msg += f"🔗 {link}\n"
+        msg += "\n🔑 कोड मिलने पर मुझे भेजो (जैसे: boom123)"
+        bot.reply_to(message, msg)
 
     elif text == "📤 शेयर किया":
         if add_points(user_id, "shares", 5, 1, 25):
@@ -129,14 +142,32 @@ Total Points: {u['points']}
 📤 Shares: {u['shares']}/5
 🔗 Referrals: {u['ref']}""")
 
- elif text == "🔗 रेफरल लिंक":
-    bot.reply_to(message, f"🔗 आपका रेफरल लिंक:\nhttps://t.me/Hkzyt_bot?start={user_id}")
+    elif text == "🔗 रेफरल लिंक":
+        bot.reply_to(message, f"🔗 आपका रेफरल लिंक:\nhttps://t.me/Hkzyt_bot?start={user_id}")
+
     elif text == "🎯 प्रमोशन सबमिट":
         u = get_user(user_id)
         if u['points'] >= 1000:
             bot.reply_to(message, "✅ कृपया अपना प्रमोशन लिंक भेजें:")
         else:
             bot.reply_to(message, "❌ प्रमोशन के लिए 1000 पॉइंट्स ज़रूरी हैं।")
+
+@bot.message_handler(func=lambda m: m.text.lower() in VIDEO_CODES)
+def handle_secret_code(message):
+    user_id = str(message.from_user.id)
+    code = message.text.lower()
+
+    cursor.execute("SELECT id FROM redemptions WHERE id = ? AND code = ?", (user_id, code))
+    if cursor.fetchone():
+        bot.reply_to(message, "⚠️ आपने ये कोड पहले ही इस्तेमाल किया है।")
+        return
+
+    if add_points(user_id, "videos", 10, 1, 10):
+        cursor.execute("INSERT INTO redemptions (id, code) VALUES (?, ?)", (user_id, code))
+        conn.commit()
+        bot.reply_to(message, "✅ सही कोड! आपको 10 पॉइंट्स मिले 🎉")
+    else:
+        bot.reply_to(message, "⚠️ आपने पहले ही 10 वीडियो पूरे कर लिए हैं।")
 
 @bot.message_handler(content_types=['text'])
 def promotion_handler(message):
