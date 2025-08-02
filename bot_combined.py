@@ -1,4 +1,4 @@
-import telebot, sqlite3
+import telebot, sqlite3, os
 from flask import Flask
 from threading import Thread
 
@@ -6,7 +6,6 @@ from threading import Thread
 BOT_TOKEN = "8324637176:AAFeKHN29fpeGA4b7w5RfvSgrOH8LRkCYmY"
 ADMIN_ID = 7459795138
 TELEGRAM_GROUP = "@boomupbot10"
-WELCOME_IMAGE_FILE_ID = "YOUR_IMAGE_FILE_ID"
 
 VIDEO_CODES = {
     "boom123": "https://youtu.be/QSH5mW7Il00?si=AcLkdNBNSJqGs5y3",
@@ -16,7 +15,7 @@ VIDEO_CODES = {
     "hindi007": "https://youtu.be/smWCVRNMqh0?si=hBmNoBIMyLLKCoM2"
 }
 
-# ========== AUTO LIVE KEEP ALIVE ==========
+# ========== KEEP ALIVE ==========
 app = Flask('')
 @app.route('/')
 def home(): return "Bot is running"
@@ -24,7 +23,7 @@ def run(): app.run(host='0.0.0.0', port=8080)
 def keep_alive(): Thread(target=run).start()
 keep_alive()
 
-# ========== DB SETUP ==========
+# ========== DATABASE SETUP ==========
 conn = sqlite3.connect("bot.db", check_same_thread=False)
 cursor = conn.cursor()
 cursor.execute("""
@@ -46,9 +45,7 @@ CREATE TABLE IF NOT EXISTS redemptions (
 """)
 conn.commit()
 
-# ========== BOT ==========
-bot = telebot.TeleBot(BOT_TOKEN)
-
+# ========== DB FUNCTIONS ==========
 def check_user(user_id):
     cursor.execute("SELECT id FROM users WHERE id = ?", (user_id,))
     if not cursor.fetchone():
@@ -78,11 +75,15 @@ def apply_referral(new_user_id, ref_id):
         cursor.execute("UPDATE users SET referred_by = ? WHERE id = ?", (ref_id, new_user_id))
         conn.commit()
 
+# ========== TELEGRAM BOT ==========
+bot = telebot.TeleBot(BOT_TOKEN)
+
 def is_user_in_channel(user_id):
     try:
         member = bot.get_chat_member(TELEGRAM_GROUP, user_id)
         return member.status in ["member", "administrator", "creator"]
-    except:
+    except Exception as e:
+        print(f"Error: {e}")
         return False
 
 def main_menu():
@@ -95,9 +96,10 @@ def main_menu():
 @bot.message_handler(commands=["start"])
 def start(message):
     user_id = str(message.from_user.id)
+
     if not is_user_in_channel(user_id):
         join_btn = telebot.types.InlineKeyboardMarkup()
-        join_btn.add(telebot.types.InlineKeyboardButton("📥 ग्रुप जॉइन करें", url=f"https://t.me/{TELEGRAM_GROUP.replace('@','')}"))
+        join_btn.add(telebot.types.InlineKeyboardButton("📥 ग्रुप जॉइन करें", url=f"https://t.me/{TELEGRAM_GROUP.replace('@', '')}"))
         bot.send_message(message.chat.id, "🚫 पहले हमारे Telegram Group को जॉइन करें:", reply_markup=join_btn)
         return
 
@@ -107,16 +109,10 @@ def start(message):
         ref_id = message.text.split()[1]
         apply_referral(user_id, ref_id)
 
-    bot.send_photo(
+    # ✅ Welcome Message Without Image
+    bot.send_message(
         message.chat.id,
-        WELCOME_IMAGE_FILE_ID,
-        caption="👋 *Welcome to BoomUp Bot!*",
-        parse_mode="Markdown"
-    )
-    bot.send_message(message.chat.id,
-        "🎥 वीडियो देखो, कोड डालो और पॉइंट्स कमाओ!\n"
-        "📤 शेयर करो, रेफर करो और प्रमोशन का मौका पाओ!\n\n"
-        "💡 वीडियो देखकर अंत में दिखा कोड मुझे भेजें।",
+        "👋 *Welcome to BoomUp Bot!*\n\n🎥 वीडियो देखो, कोड डालो और पॉइंट्स कमाओ!\n📤 शेयर करो, रेफर करो और प्रमोशन का मौका पाओ!\n\n💡 वीडियो देखकर अंत में दिखा कोड मुझे भेजें।",
         reply_markup=main_menu(),
         parse_mode="Markdown"
     )
@@ -148,7 +144,7 @@ Total Points: {u['points']}
 🔗 Referrals: {u['ref']}""")
 
     elif text == "🔗 रेफरल लिंक":
-        bot.reply_to(message, f"🔗 आपका रेफरल लिंक:\nhttps://t.me/YOUR_BOT_USERNAME?start={user_id}")
+        bot.reply_to(message, f"🔗 आपका रेफरल लिंक:\nhttps://t.me/NewYt1_bot?start={user_id}")
 
     elif text == "🎯 प्रमोशन सबमिट":
         u = get_user(user_id)
@@ -165,30 +161,13 @@ def handle_secret_code(message):
     if cursor.fetchone():
         bot.reply_to(message, "⚠️ आपने ये कोड पहले ही इस्तेमाल किया है।")
         return
+
     if add_points(user_id, "videos", 10, 1, 10):
         cursor.execute("INSERT INTO redemptions (id, code) VALUES (?, ?)", (user_id, code))
         conn.commit()
         bot.reply_to(message, "✅ सही कोड! आपको 10 पॉइंट्स मिले 🎉")
     else:
         bot.reply_to(message, "⚠️ आपने पहले ही 10 वीडियो पूरे कर लिए हैं।")
-
-@bot.message_handler(content_types=['photo'])
-def get_file_id(message):
-    file_id = message.photo[-1].file_id
-    bot.reply_to(message, f"🆔 आपकी फोटो का file_id:\n\n`{file_id}`", parse_mode="Markdown")
-
-@bot.message_handler(content_types=['text'])
-def promotion_handler(message):
-    user_id = str(message.from_user.id)
-    u = get_user(user_id)
-    if u and u['points'] >= 1000 and message.text.startswith("http"):
-        markup = telebot.types.InlineKeyboardMarkup()
-        markup.add(
-            telebot.types.InlineKeyboardButton("✅ Approve", callback_data=f"approve:{user_id}"),
-            telebot.types.InlineKeyboardButton("❌ Reject", callback_data=f"reject:{user_id}")
-        )
-        bot.send_message(ADMIN_ID, f"📣 User {user_id} sent a promo:\n{message.text}", reply_markup=markup)
-        bot.reply_to(message, "📤 आपका लिंक भेज दिया गया है। 12 घंटे में रिव्यू होगा।")
 
 @bot.callback_query_handler(func=lambda call: True)
 def handle_callback(call):
