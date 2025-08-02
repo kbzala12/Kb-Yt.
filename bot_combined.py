@@ -14,7 +14,33 @@ VIDEO_CODES = {
     "flash321": "https://youtu.be/wskpFAMrb6I?si=cx4bYzmwBgY68Qmq",
     "hindi007": "https://youtu.be/smWCVRNMqh0?si=hBmNoBIMyLLKCoM2"
 }
+import threading
 
+@bot.message_handler(func=lambda msg: msg.text == "🎥 वीडियो देखा")
+def handle_video_watch(message):
+    user_id = str(message.from_user.id)
+    check_user(user_id)
+
+    msg = (
+        "🎬 *नीचे वीडियो लिस्ट है:*\n\n"
+        "1. [🔥 वीडियो 1](https://youtu.be/QSH5mW7Il00?si=AcLkdNBNSJqGs5y3)\n"
+        "2. [🚀 वीडियो 2](https://youtu.be/cDHi31m0rxI?si=xHUXL54PjtFS-wlN)\n"
+        "3. [🎯 वीडियो 3](https://youtu.be/k84NTqHakEE?si=q_1FZRrIdjPjWZKa)\n"
+        "4. [🎥 वीडियो 4](https://youtu.be/wskpFAMrb6I?si=cx4bYzmwBgY68Qmq)\n"
+        "5. [🔥 वीडियो 5](https://youtu.be/smWCVRNMqh0?si=hBmNoBIMyLLKCoM2)\n\n"
+        "⏳ *हर वीडियो को कम से कम 4 मिनट देखें*।"
+    )
+    bot.reply_to(message, msg, parse_mode="Markdown")
+
+    # 🔁 4 मिनट (240 सेकंड) बाद कोड डालने की अनुमति वाला मैसेज भेजें
+    def send_code_prompt():
+        bot.send_message(
+            message.chat.id,
+            "🕓 अब आप कोड डाल सकते हैं (जैसे: `boom123`)",
+            parse_mode="Markdown"
+        )
+
+    threading.Timer(240, send_code_prompt).start()  # 240 sec = 4 min
 # ========== KEEP ALIVE ==========
 app = Flask('')
 @app.route('/')
