@@ -1,14 +1,13 @@
-import telebot, sqlite3, os
+import telebot, sqlite3
 from flask import Flask
 from threading import Thread
 
 # ========== CONFIG ==========
-BOT_TOKEN = "8324637176:AAFeKHN29fpeGA4b7w5RfvSgrOH8LRkCYmY"
+BOT_TOKEN = "YOUR_BOT_TOKEN"
 ADMIN_ID = 7459795138
-YOUTUBE_CHANNEL = "https://youtube.com/@kishorsinhzala.?si=uKMVwnB7wV_yoSQN"
 TELEGRAM_GROUP = "@boomupbot10"
+WELCOME_IMAGE_FILE_ID = "YOUR_IMAGE_FILE_ID"
 
-# ========== VIDEO CODES ==========
 VIDEO_CODES = {
     "boom123": "https://youtu.be/QSH5mW7Il00?si=AcLkdNBNSJqGs5y3",
     "xpress456": "https://youtu.be/cDHi31m0rxI?si=xHUXL54PjtFS-wlN",
@@ -17,7 +16,7 @@ VIDEO_CODES = {
     "hindi007": "https://youtu.be/smWCVRNMqh0?si=hBmNoBIMyLLKCoM2"
 }
 
-# ========== KEEP ALIVE (for Replit) ==========
+# ========== AUTO LIVE KEEP ALIVE ==========
 app = Flask('')
 @app.route('/')
 def home(): return "Bot is running"
@@ -47,7 +46,9 @@ CREATE TABLE IF NOT EXISTS redemptions (
 """)
 conn.commit()
 
-# ========== DB FUNCTIONS ==========
+# ========== BOT ==========
+bot = telebot.TeleBot(BOT_TOKEN)
+
 def check_user(user_id):
     cursor.execute("SELECT id FROM users WHERE id = ?", (user_id,))
     if not cursor.fetchone():
@@ -77,15 +78,11 @@ def apply_referral(new_user_id, ref_id):
         cursor.execute("UPDATE users SET referred_by = ? WHERE id = ?", (ref_id, new_user_id))
         conn.commit()
 
-# ========== TELEGRAM BOT ==========
-bot = telebot.TeleBot(BOT_TOKEN)
-
 def is_user_in_channel(user_id):
     try:
         member = bot.get_chat_member(TELEGRAM_GROUP, user_id)
         return member.status in ["member", "administrator", "creator"]
-    except Exception as e:
-        print(f"Error: {e}")
+    except:
         return False
 
 def main_menu():
@@ -98,10 +95,9 @@ def main_menu():
 @bot.message_handler(commands=["start"])
 def start(message):
     user_id = str(message.from_user.id)
-
     if not is_user_in_channel(user_id):
         join_btn = telebot.types.InlineKeyboardMarkup()
-        join_btn.add(telebot.types.InlineKeyboardButton("📥 ग्रुप जॉइन करें", url=f"https://t.me/{TELEGRAM_GROUP.replace('@', '')}"))
+        join_btn.add(telebot.types.InlineKeyboardButton("📥 ग्रुप जॉइन करें", url=f"https://t.me/{TELEGRAM_GROUP.replace('@','')}"))
         bot.send_message(message.chat.id, "🚫 पहले हमारे Telegram Group को जॉइन करें:", reply_markup=join_btn)
         return
 
@@ -111,9 +107,19 @@ def start(message):
         ref_id = message.text.split()[1]
         apply_referral(user_id, ref_id)
 
+    bot.send_photo(
+        message.chat.id,
+        WELCOME_IMAGE_FILE_ID,
+        caption="👋 *Welcome to BoomUp Bot!*",
+        parse_mode="Markdown"
+    )
     bot.send_message(message.chat.id,
-        f"👋 Welcome to BoomUp Bot!\n\n🎥 Watch = 10 pts\n📤 Share = 25 pts\n🔗 Referral = 50 pts\n🎯 Promote @ 1000 pts\n\n📺 {YOUTUBE_CHANNEL}\n💬 {TELEGRAM_GROUP}",
-        reply_markup=main_menu())
+        "🎥 वीडियो देखो, कोड डालो और पॉइंट्स कमाओ!\n"
+        "📤 शेयर करो, रेफर करो और प्रमोशन का मौका पाओ!\n\n"
+        "💡 वीडियो देखकर अंत में दिखा कोड मुझे भेजें।",
+        reply_markup=main_menu(),
+        parse_mode="Markdown"
+    )
 
 @bot.message_handler(func=lambda msg: True)
 def handle_all(message):
@@ -122,11 +128,10 @@ def handle_all(message):
     text = message.text
 
     if text == "🎥 वीडियो देखा":
-        msg = "🎥 इन वीडियो को देखो और अंत में दिए गए कोड को भेजो:\n\n"
+        msg = "🎥 ये वीडियो देखिए और अंत में दिखा *code* मुझे भेजिए:\n\n"
         for code, link in VIDEO_CODES.items():
             msg += f"🔗 {link}\n"
-        msg += "\n🔑 कोड मिलने पर मुझे भेजो (जैसे: boom123)"
-        bot.reply_to(message, msg)
+        bot.reply_to(message, msg, parse_mode="Markdown")
 
     elif text == "📤 शेयर किया":
         if add_points(user_id, "shares", 5, 1, 25):
@@ -143,7 +148,7 @@ Total Points: {u['points']}
 🔗 Referrals: {u['ref']}""")
 
     elif text == "🔗 रेफरल लिंक":
-        bot.reply_to(message, f"🔗 आपका रेफरल लिंक:\nhttps://t.me/Hkzyt_bot?start={user_id}")
+        bot.reply_to(message, f"🔗 आपका रेफरल लिंक:\nhttps://t.me/YOUR_BOT_USERNAME?start={user_id}")
 
     elif text == "🎯 प्रमोशन सबमिट":
         u = get_user(user_id)
@@ -156,18 +161,21 @@ Total Points: {u['points']}
 def handle_secret_code(message):
     user_id = str(message.from_user.id)
     code = message.text.lower()
-
     cursor.execute("SELECT id FROM redemptions WHERE id = ? AND code = ?", (user_id, code))
     if cursor.fetchone():
         bot.reply_to(message, "⚠️ आपने ये कोड पहले ही इस्तेमाल किया है।")
         return
-
     if add_points(user_id, "videos", 10, 1, 10):
         cursor.execute("INSERT INTO redemptions (id, code) VALUES (?, ?)", (user_id, code))
         conn.commit()
         bot.reply_to(message, "✅ सही कोड! आपको 10 पॉइंट्स मिले 🎉")
     else:
         bot.reply_to(message, "⚠️ आपने पहले ही 10 वीडियो पूरे कर लिए हैं।")
+
+@bot.message_handler(content_types=['photo'])
+def get_file_id(message):
+    file_id = message.photo[-1].file_id
+    bot.reply_to(message, f"🆔 आपकी फोटो का file_id:\n\n`{file_id}`", parse_mode="Markdown")
 
 @bot.message_handler(content_types=['text'])
 def promotion_handler(message):
