@@ -6,7 +6,7 @@ BOT_TOKEN = "8324637176:AAFeKHN29fpeGA4b7w5RfvSgrOH8LRkCYmY"
 bot = telebot.TeleBot(BOT_TOKEN)
 
 WEBAPP_URL = "https://hkyt-bot.onrender.com"
-TELEGRAM_GROUP_USERNAME = "@boomupbot10"  # 👉 बिना '@' के group username
+TELEGRAM_GROUP_USERNAME = https://t.me/boomupbot10 # 👉 बिना '@' के group username
 
 ADMIN_CHAT_ID = 7470248597  # For debugging/logging if needed
 
