@@ -1,55 +1,46 @@
-import telebot import time import sqlite3 from flask import Flask from threading import Thread
+import telebot
+from telebot.types import ReplyKeyboardMarkup, KeyboardButton, WebAppInfo, InlineKeyboardMarkup, InlineKeyboardButton
+import requests
 
-BOT_TOKEN = "8192810260:AAFfhjDfNywZIzkrlVmtAuKFL5_E-ZnsOmU" TELEGRAM_GROUP = "@boomupbot10" VIDEO_CODES = { "boom123": { "link": "https://youtu.be/QSH5mW7Il00", "id": "QSH5mW7Il00" }, "xpress456": { "link": "https://youtu.be/cDHi31m0rxI", "id": "cDHi31m0rxI" }, # More codes can be added here }
-
+BOT_TOKEN = "8192810260:AAFfhjDfNywZIzkrlVmtAuKFL5_E-ZnsOmU"
 bot = telebot.TeleBot(BOT_TOKEN)
 
-def is_user_in_group(user_id): try: member = bot.get_chat_member(TELEGRAM_GROUP, user_id) return member.status in ['member', 'creator', 'administrator'] except: return False
+WEBAPP_URL = "https://hkyt-bot.onrender.com"
+TELEGRAM_GROUP_USERNAME = "boomupbot10"  # 👉 बिना '@' के group username
 
-@bot.message_handler(commands=['start']) def start_message(message): user_id = message.from_user.id if not is_user_in_group(user_id): bot.send_message(message.chat.id, f"👋 Welcome!
+ADMIN_CHAT_ID = 7470248597  # For debugging/logging if needed
 
-🚨 पहले हमारे ग्रुप को जॉइन करें ताकि आप इनाम पा सकें: 👉 {TELEGRAM_GROUP}", parse_mode="Markdown") return bot.send_message(message.chat.id, "🎉 स्वागत है!
+# Function to check membership
+def is_user_in_group(user_id):
+    try:
+        res = requests.get(
+            f"https://api.telegram.org/bot{BOT_TOKEN}/getChatMember?chat_id=@{TELEGRAM_GROUP_USERNAME}&user_id={user_id}"
+        ).json()
+        status = res['result']['status']
+        return status in ['member', 'administrator', 'creator']
+    except:
+        return False
 
-🎁 वीडियो देखो, कोड भेजो और इनाम पाओ!
+@bot.message_handler(commands=['start'])
+def start(message):
+    user_id = message.from_user.id
 
-👇 सभी वीडियो देखने के लिए /video लिखें")
+    if is_user_in_group(user_id):
+        # ✅ Group joined → Show WebApp Button inside Telegram
+        markup = ReplyKeyboardMarkup(resize_keyboard=True)
+        webapp_button = KeyboardButton("🎁 वेब ऐप खोलें", web_app=WebAppInfo(url=WEBAPP_URL))
+        markup.add(webapp_button)
 
-@bot.message_handler(commands=['video']) def send_video_list(message): user_id = message.from_user.id if not is_user_in_group(user_id): bot.send_message(message.chat.id, f"🚫 पहले हमारे ग्रुप को जॉइन करें: 👉 {TELEGRAM_GROUP}") return
+        bot.send_message(message.chat.id, "✅ आपने ग्रुप जॉइन कर लिया है!\nनीचे दिए गए बटन से WebApp खोलें:", reply_markup=markup)
 
-for code, data in VIDEO_CODES.items():
-    video_link = data["link"]
-    video_id = data["id"]
-    thumbnail_url = f"https://img.youtube.com/vi/{video_id}/0.jpg"
-    caption = f"🎬 *वीडियो देखें और 3 मिनट बाद 🎁 इनाम पाएं!*
+    else:
+        # ❌ Not joined → Show Join Group Button
+        join_markup = InlineKeyboardMarkup()
+        join_button = InlineKeyboardButton("🚀 ग्रुप जॉइन करें", url=f"https://t.me/{TELEGRAM_GROUP_USERNAME}")
+        join_markup.add(join_button)
 
-👉 कोड: {code}"
+        bot.send_message(message.chat.id,
+                         "❌ आप अभी हमारे ऑफिशियल ग्रुप में नहीं हैं!\nकृपया पहले नीचे दिए गए बटन से ग्रुप जॉइन करें फिर /start भेजें।",
+                         reply_markup=join_markup)
 
-markup = telebot.types.InlineKeyboardMarkup()
-    markup.add(telebot.types.InlineKeyboardButton("▶️ वीडियो देखें", url=video_link))
-
-    bot.send_photo(
-        chat_id=message.chat.id,
-        photo=thumbnail_url,
-        caption=caption,
-        reply_markup=markup,
-        parse_mode="Markdown"
-    )
-
-@bot.message_handler(commands=['watch']) def watch_video(message): bot.send_message(message.chat.id, "⏳ कृपया वीडियो देखें... 3 मिनट बाद 🎁 कोड भेजें।") time.sleep(180) bot.send_message(message.chat.id, "✅ अब आप 🎁 Reward के लिए कोड भेज सकते हैं!")
-
-@bot.message_handler(func=lambda message: True) def handle_code(message): user_id = message.from_user.id if not is_user_in_group(user_id): bot.send_message(message.chat.id, f"🚫 पहले हमारे ग्रुप को जॉइन करें: 👉 {TELEGRAM_GROUP}") return
-
-code = message.text.strip()
-if code in VIDEO_CODES:
-    bot.send_message(message.chat.id, "🎁 बधाई हो! आपने सही कोड भेजा है। इनाम भेजा जा रहा है।")
-else:
-    bot.send_message(message.chat.id, "❌ गलत कोड। कृपया सही कोड भेजें।")
-
-Flask app for keep-alive
-
-app = Flask('') @app.route('/') def home(): return "Bot is running!"
-
-def run(): app.run(host='0.0.0.0', port=8080)
-
-Thread(target=run).start() print("🤖 Bot is running...") bot.polling(none_stop=True)
-
+bot.infinity_polling()
