@@ -2,13 +2,13 @@ import telebot
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton, WebAppInfo, InlineKeyboardMarkup, InlineKeyboardButton
 import requests
 
-BOT_TOKEN = "8324637176:AAFeKHN29fpeGA4b7w5RfvSgrOH8LRkCYmY"
+BOT_TOKEN = "7559801414:AAG6nHs9zoF9CLDknI9E3c5zBqz8ekcgPXQ"
 bot = telebot.TeleBot(BOT_TOKEN)
 
 WEBAPP_URL = "https://hkyt-bot.onrender.com"
 TELEGRAM_GROUP_USERNAME = https://t.me/boomupbot10 # 👉 बिना '@' के group username
 
-ADMIN_CHAT_ID = 7470248597  # For debugging/logging if needed
+ADMIN_CHAT_ID = 7559801414  # For debugging/logging if needed
 
 # Function to check membership
 def is_user_in_group(user_id):
