@@ -7,7 +7,7 @@ import threading
 import requests
 
 # --- Config ---
-BOT_TOKEN = "7978191312:AAFyWVkBruuR42HTuTd_sQxFaKHBrre0VWw"
+BOT_TOKEN = "8267991203:AAH7-oOq-qKAed4OSBQdMxlg-UDCVZLyzF0"
 ADMIN_ID = 7459795138
 GROUP_USERNAME = "boomupbot10"  # '@' के बिना
 
