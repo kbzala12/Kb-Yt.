@@ -10,7 +10,7 @@ BOT_TOKEN = "8267991203:AAH7-oOq-qKAed4OSBQdMxlg-UDCVZLyzF0"
 ADMIN_ID = 7459795138
 WEB_APP_URL = "https://studiokbyt.onrender.com"
 GROUP_ID = "@boomupbot10"  # आपका ग्रुप username
-BOT_USERNAME = "Bingyt_bot"  # अपने Bot का username डालें
+BOT_USERNAME = "ytbotkb_bot"  # अपने Bot का username डालें
 
 # ================= LOGGING =================
 logging.basicConfig(
