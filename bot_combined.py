@@ -1,119 +1,132 @@
-# bot.py
 import telebot
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
-import sqlite3
-import time
-import threading
-import requests
-
-# --- Config ---
-BOT_TOKEN = "8267991203:AAH7-oOq-qKAed4OSBQdMxlg-UDCVZLyzF0"
-ADMIN_ID = 7459795138
-GROUP_USERNAME = "boomupbot10"  # '@' के बिना
+import json
+from flask import Flask
+from threading import Thread
+from config import BOT_TOKEN, ADMIN_ID, YOUTUBE_CHANNEL, TELEGRAM_GROUP, WEB_URL
 
 bot = telebot.TeleBot(BOT_TOKEN)
+data_file = "data.json"
 
-# --- Database Setup ---
-conn = sqlite3.connect("botdata.db", check_same_thread=False)
-c = conn.cursor()
-c.execute("""CREATE TABLE IF NOT EXISTS users (
-    telegram_id INTEGER PRIMARY KEY,
-    coins INTEGER DEFAULT 0
-)""")
-c.execute("""CREATE TABLE IF NOT EXISTS videos (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    file_id TEXT
-)""")
-conn.commit()
-
-# --- Helper Functions ---
-def is_user_in_group(user_id):
+# ---------------- Data Persistence ----------------
+def load_data():
     try:
-        res = requests.get(
-            f"https://api.telegram.org/bot{BOT_TOKEN}/getChatMember",
-            params={"chat_id": f"@{GROUP_USERNAME}", "user_id": user_id}
-        ).json()
-        status = res["result"]["status"]
-        return status in ["member", "administrator", "creator"]
-    except Exception:
-        return False
+        with open(data_file, "r") as f:
+            return json.load(f)
+    except:
+        return {}
 
-def add_coins(user_id, amount):
-    c.execute("INSERT OR IGNORE INTO users (telegram_id, coins) VALUES (?, 0)", (user_id,))
-    c.execute("UPDATE users SET coins = coins + ? WHERE telegram_id=?", (amount, user_id))
-    conn.commit()
+def save_data(data):
+    with open(data_file, "w") as f:
+        json.dump(data, f)
 
-def get_coins(user_id):
-    c.execute("SELECT coins FROM users WHERE telegram_id=?", (user_id,))
-    row = c.fetchone()
-    return row[0] if row else 0
+users = load_data()
 
-# --- Commands ---
-@bot.message_handler(commands=['start'])
+def check_user(user_id):
+    if str(user_id) not in users:
+        users[str(user_id)] = {"points": 0, "shares": 0, "ref": 0}
+        save_data(users)
+
+# ---------------- Config ----------------
+REFERRAL_POINTS = 100
+SHARE_POINTS = 25
+SHARE_LIMIT = 5
+
+# ---------------- Start Command ----------------
+@bot.message_handler(commands=["start"])
 def start(message):
-    uid = message.from_user.id
-    if is_user_in_group(uid):
-        bot.send_message(uid, "✅ Welcome! आप group member हैं.\n/videos से videos देखें.")
-    else:
-        join_markup = InlineKeyboardMarkup()
-        join_markup.add(InlineKeyboardButton("🚀 Group Join करें", url=f"https://t.me/{GROUP_USERNAME}"))
-        bot.send_message(uid, "❌ पहले group join करें, फिर /start भेजें.", reply_markup=join_markup)
+    user_id = str(message.from_user.id)
+    args = message.text.split()
+    check_user(user_id)
 
-@bot.message_handler(commands=['addvideo'])
-def addvideo(message):
-    if message.from_user.id != ADMIN_ID:
-        bot.reply_to(message, "⛔ केवल admin वीडियो जोड़ सकता है.")
-        return
-    bot.reply_to(message, "कृपया वीडियो भेजें.")
-    bot.register_next_step_handler(message, save_video)
+    # Referral System
+    if len(args) > 1:
+        referrer_id = args[1]
+        if referrer_id != user_id:
+            check_user(referrer_id)
+            users[referrer_id]["points"] += REFERRAL_POINTS
+            users[referrer_id]["ref"] += 1
+            save_data(users)
+            bot.send_message(referrer_id, f"🎉 नया यूज़र आपके लिंक से जुड़ा! आपको {REFERRAL_POINTS} कॉइन मिले ✅")
 
-def save_video(message):
-    if message.video:
-        fid = message.video.file_id
-        c.execute("INSERT INTO videos (file_id) VALUES (?)", (fid,))
-        conn.commit()
-        bot.reply_to(message, "✅ वीडियो saved.")
-    else:
-        bot.reply_to(message, "❌ कृपया एक वीडियो भेजें.")
+    # 🌐 Web + Invite Buttons
+    markup = telebot.types.InlineKeyboardMarkup()
+    markup.add(
+        telebot.types.InlineKeyboardButton("🌐 Web Open", url=WEB_URL),
+        telebot.types.InlineKeyboardButton("👥 Invite", url=f"https://t.me/YOUR_BOT_USERNAME?start={user_id}")
+    )
 
-@bot.message_handler(commands=['videos'])
-def list_videos(message):
-    uid = message.from_user.id
-    if not is_user_in_group(uid):
-        join_markup = InlineKeyboardMarkup()
-        join_markup.add(InlineKeyboardButton("🚀 Group Join करें", url=f"https://t.me/{GROUP_USERNAME}"))
-        bot.send_message(uid, "❌ पहले group join करें, फिर /videos भेजें.", reply_markup=join_markup)
-        return
+    bot.send_message(message.chat.id,
+        f"👋 स्वागत है *BoomUp Bot* में, {message.from_user.first_name}!\n\n"
+        f"👥 Invite करो → {REFERRAL_POINTS} कॉइन\n"
+        f"🔄 शेयर करो → {SHARE_POINTS} कॉइन\n\n"
+        f"📺 YouTube: {YOUTUBE_CHANNEL}\n"
+        f"💬 Telegram: {TELEGRAM_GROUP}\n\n"
+        f"👇 नीचे Menu से ऑप्शन चुनो 👇",
+        parse_mode="Markdown",
+        reply_markup=markup
+    )
 
-    c.execute("SELECT id, file_id FROM videos")
-    videos = c.fetchall()
-    if not videos:
-        bot.send_message(uid, "📭 कोई वीडियो नहीं है.")
-        return
+# ---------------- Main Menu ----------------
+def main_menu():
+    menu = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
+    menu.row("🔄 शेयर करो", "📊 मेरे पॉइंट्स")
+    menu.row("🔗 रेफ़रल लिंक", "🎁 प्रमोशन")
+    return menu
 
-    for vid in videos:
-        vid_id, file_id = vid
-        watch_btn = InlineKeyboardMarkup()
-        watch_btn.add(InlineKeyboardButton("✅ देखा", callback_data=f"watch_{vid_id}"))
-        bot.send_video(uid, file_id, reply_markup=watch_btn)
+# ---------------- Handle Messages ----------------
+@bot.message_handler(func=lambda msg: True)
+def handle_all(message):
+    user_id = str(message.from_user.id)
+    text = message.text
+    check_user(user_id)
 
-@bot.callback_query_handler(func=lambda call: call.data.startswith("watch_"))
-def watched(call):
-    uid = call.from_user.id
-    vid_id = call.data.split("_")[1]
-    bot.answer_callback_query(call.id, "⏳ 3 मिनट इंतजार करें coins पाने के लिए...")
+    # 🔄 Share
+    if text == "🔄 शेयर करो":
+        if users[user_id]["shares"] < SHARE_LIMIT:
+            users[user_id]["shares"] += 1
+            users[user_id]["points"] += SHARE_POINTS
+            save_data(users)
+            bot.reply_to(message, f"✅ शेयर सफल! {SHARE_POINTS} कॉइन मिले 🎉")
+        else:
+            bot.reply_to(message, f"⚠️ {SHARE_LIMIT} शेयर आज कर चुके हो। कल फिर ट्राय करो।")
 
-    def delayed_add():
-        time.sleep(180)  # 3 मिनट
-        add_coins(uid, 10)
-        bot.send_message(uid, f"🎉 आपने 10 coins कमा लिए!\n💰 Total coins: {get_coins(uid)}")
+    # 📊 Stats
+    elif text == "📊 मेरे पॉइंट्स":
+        u = users[user_id]
+        bot.reply_to(message,
+            f"📊 आपके Stats:\n\n"
+            f"⭐ Total Points: {u['points']}\n"
+            f"🔄 Shares: {u['shares']}/{SHARE_LIMIT}\n"
+            f"👥 Referrals: {u['ref']}"
+        )
 
-    threading.Thread(target=delayed_add).start()
+    # 🔗 Referral Link
+    elif text == "🔗 रेफ़रल लिंक":
+        bot.reply_to(message,
+            f"👉 आपका Referral Link:\n"
+            f"https://t.me/YOUR_BOT_USERNAME?start={user_id}"
+        )
 
-@bot.message_handler(commands=['coins'])
-def coins(message):
-    uid = message.from_user.id
-    bot.send_message(uid, f"💰 आपके coins: {get_coins(uid)}")
+    # 🎁 Promotion
+    elif text == "🎁 प्रमोशन":
+        if users[user_id]["points"] >= 1000:
+            bot.reply_to(message, "✅ Send your YouTube/Promotion link. Admin approval के बाद 3 दिन तक प्रमोशन होगा।")
+        else:
+            bot.reply_to(message, f"⚠️ प्रमोशन के लिए 1000 कॉइन चाहिए। आपके पास {users[user_id]['points']} कॉइन हैं।")
 
-# --- Run Bot ---
-bot.infinity_polling()
+# ---------------- Flask App for 24/7 ----------------
+app = Flask("")
+
+@app.route("/")
+def home():
+    return "BoomUp Invite Bot is running 24/7 ✅"
+
+def run_flask():
+    app.run(host="0.0.0.0", port=5000)
+
+def run_bot():
+    bot.infinity_polling()
+
+# ---------------- Run Both ----------------
+Thread(target=run_flask).start()
+Thread(target=run_bot).start()
