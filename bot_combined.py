@@ -1,132 +1,177 @@
-import telebot
-import json
-from flask import Flask
-from threading import Thread
-from config import BOT_TOKEN, ADMIN_ID, YOUTUBE_CHANNEL, TELEGRAM_GROUP, WEB_URL
+import logging
+import sqlite3
+import random
+import string
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
+from telegram.ext import Application, CommandHandler, ContextTypes
 
-bot = telebot.TeleBot(BOT_TOKEN)
-data_file = "data.json"
+# ================= CONFIG =================
+BOT_TOKEN = "8267991203:AAH7-oOq-qKAed4OSBQdMxlg-UDCVZLyzF0"
+ADMIN_ID = 7459795138
+WEB_APP_URL = "https://studiokbyt.onrender.com"
+GROUP_ID = "@boomupbot10"  # आपका ग्रुप username
+BOT_USERNAME = "Bingyt_bot"  # अपने Bot का username डालें
 
-# ---------------- Data Persistence ----------------
-def load_data():
-    try:
-        with open(data_file, "r") as f:
-            return json.load(f)
-    except:
-        return {}
+# ================= LOGGING =================
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
 
-def save_data(data):
-    with open(data_file, "w") as f:
-        json.dump(data, f)
+# ================= DATABASE =================
+def init_db():
+    conn = sqlite3.connect("bot.db")
+    cursor = conn.cursor()
+    cursor.execute('''CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        points INTEGER DEFAULT 0,
+        videos INTEGER DEFAULT 0,
+        shares INTEGER DEFAULT 0,
+        ref INTEGER DEFAULT 0,
+        referred_by TEXT
+    )''')
+    conn.commit()
+    conn.close()
 
-users = load_data()
+def add_user(telegram_id, referred_by=None):
+    conn = sqlite3.connect("bot.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM users WHERE id=?", (str(telegram_id),))
+    user = cursor.fetchone()
 
-def check_user(user_id):
-    if str(user_id) not in users:
-        users[str(user_id)] = {"points": 0, "shares": 0, "ref": 0}
-        save_data(users)
-
-# ---------------- Config ----------------
-REFERRAL_POINTS = 100
-SHARE_POINTS = 25
-SHARE_LIMIT = 5
-
-# ---------------- Start Command ----------------
-@bot.message_handler(commands=["start"])
-def start(message):
-    user_id = str(message.from_user.id)
-    args = message.text.split()
-    check_user(user_id)
-
-    # Referral System
-    if len(args) > 1:
-        referrer_id = args[1]
-        if referrer_id != user_id:
-            check_user(referrer_id)
-            users[referrer_id]["points"] += REFERRAL_POINTS
-            users[referrer_id]["ref"] += 1
-            save_data(users)
-            bot.send_message(referrer_id, f"🎉 नया यूज़र आपके लिंक से जुड़ा! आपको {REFERRAL_POINTS} कॉइन मिले ✅")
-
-    # 🌐 Web + Invite Buttons
-    markup = telebot.types.InlineKeyboardMarkup()
-    markup.add(
-        telebot.types.InlineKeyboardButton("🌐 Web Open", url=WEB_URL),
-        telebot.types.InlineKeyboardButton("👥 Invite", url=f"https://t.me/YOUR_BOT_USERNAME?start={user_id}")
-    )
-
-    bot.send_message(message.chat.id,
-        f"👋 स्वागत है *BoomUp Bot* में, {message.from_user.first_name}!\n\n"
-        f"👥 Invite करो → {REFERRAL_POINTS} कॉइन\n"
-        f"🔄 शेयर करो → {SHARE_POINTS} कॉइन\n\n"
-        f"📺 YouTube: {YOUTUBE_CHANNEL}\n"
-        f"💬 Telegram: {TELEGRAM_GROUP}\n\n"
-        f"👇 नीचे Menu से ऑप्शन चुनो 👇",
-        parse_mode="Markdown",
-        reply_markup=markup
-    )
-
-# ---------------- Main Menu ----------------
-def main_menu():
-    menu = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
-    menu.row("🔄 शेयर करो", "📊 मेरे पॉइंट्स")
-    menu.row("🔗 रेफ़रल लिंक", "🎁 प्रमोशन")
-    return menu
-
-# ---------------- Handle Messages ----------------
-@bot.message_handler(func=lambda msg: True)
-def handle_all(message):
-    user_id = str(message.from_user.id)
-    text = message.text
-    check_user(user_id)
-
-    # 🔄 Share
-    if text == "🔄 शेयर करो":
-        if users[user_id]["shares"] < SHARE_LIMIT:
-            users[user_id]["shares"] += 1
-            users[user_id]["points"] += SHARE_POINTS
-            save_data(users)
-            bot.reply_to(message, f"✅ शेयर सफल! {SHARE_POINTS} कॉइन मिले 🎉")
-        else:
-            bot.reply_to(message, f"⚠️ {SHARE_LIMIT} शेयर आज कर चुके हो। कल फिर ट्राय करो।")
-
-    # 📊 Stats
-    elif text == "📊 मेरे पॉइंट्स":
-        u = users[user_id]
-        bot.reply_to(message,
-            f"📊 आपके Stats:\n\n"
-            f"⭐ Total Points: {u['points']}\n"
-            f"🔄 Shares: {u['shares']}/{SHARE_LIMIT}\n"
-            f"👥 Referrals: {u['ref']}"
+    if not user:
+        cursor.execute(
+            "INSERT INTO users (id, points, videos, shares, ref, referred_by) VALUES (?, ?, ?, ?, ?, ?)",
+            (str(telegram_id), 0, 0, 0, 0, referred_by)
         )
 
-    # 🔗 Referral Link
-    elif text == "🔗 रेफ़रल लिंक":
-        bot.reply_to(message,
-            f"👉 आपका Referral Link:\n"
-            f"https://t.me/YOUR_BOT_USERNAME?start={user_id}"
-        )
+        # अगर किसी ने refer किया है तो बोनस दो
+        if referred_by:
+            cursor.execute("SELECT * FROM users WHERE id=?", (str(referred_by),))
+            ref_user = cursor.fetchone()
+            if ref_user:
+                cursor.execute("UPDATE users SET points = points + 100, ref = ref + 1 WHERE id=?", (str(referred_by),))
 
-    # 🎁 Promotion
-    elif text == "🎁 प्रमोशन":
-        if users[user_id]["points"] >= 1000:
-            bot.reply_to(message, "✅ Send your YouTube/Promotion link. Admin approval के बाद 3 दिन तक प्रमोशन होगा।")
-        else:
-            bot.reply_to(message, f"⚠️ प्रमोशन के लिए 1000 कॉइन चाहिए। आपके पास {users[user_id]['points']} कॉइन हैं।")
+    conn.commit()
+    conn.close()
 
-# ---------------- Flask App for 24/7 ----------------
-app = Flask("")
+def get_user(telegram_id):
+    conn = sqlite3.connect("bot.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM users WHERE id=?", (str(telegram_id),))
+    user = cursor.fetchone()
+    conn.close()
+    return user
 
-@app.route("/")
-def home():
-    return "BoomUp Invite Bot is running 24/7 ✅"
+# ================= HANDLERS =================
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    referral_code = None
 
-def run_flask():
-    app.run(host="0.0.0.0", port=5000)
+    # अगर /start refID दिया गया है तो पकड़ो
+    if context.args:
+        referral_code = context.args[0]
 
-def run_bot():
-    bot.infinity_polling()
+    add_user(user.id, referral_code)
 
-# ---------------- Run Both ----------------
-Thread(target=run_flask).start()
-Thread(target=run_bot).start()
+    welcome_message = f"""
+🎬 *Video Coin Earner Bot में आपका स्वागत है!* 🎬
+
+नमस्ते {user.first_name}! 
+
+📹 *वीडियो देखें और कॉइन कमाएं:*
+• प्रत्येक वीडियो = 30 पॉइंट्स  
+• दैनिक लिमिट = 10 वीडियो  
+
+👥 *रेफरल सिस्टम:*  
+• दोस्तों को इनवाइट करें  
+• हर नए यूज़र पर 100 पॉइंट्स  
+
+📤 *शेयर सिस्टम:*  
+• शेयर करने पर 25 पॉइंट्स  
+• लिमिट = 5 शेयर / दिन  
+
+⚠️ *महत्वपूर्ण:* बॉट यूज़ करने के लिए पहले ग्रुप जॉइन करना ज़रूरी है।  
+
+आपका ID: `{user.id}`
+"""
+
+    keyboard = [
+        [
+            InlineKeyboardButton("🚀 ऐप लॉन्च करें", web_app=WebAppInfo(url=WEB_APP_URL)),
+            InlineKeyboardButton("👥 ग्रुप जॉइन करें", url=f"https://t.me/{GROUP_ID.replace('@', '')}")
+        ]
+    ]
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text(welcome_message, parse_mode='Markdown', reply_markup=reply_markup)
+
+async def wallet(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = get_user(update.effective_user.id)
+    if not user:
+        await update.message.reply_text("कृपया पहले /start करें।")
+        return
+
+    wallet_message = f"""
+💰 *आपका वॉलेट*
+
+🪙 पॉइंट्स: {user[1]}  
+📹 वीडियो देखे: {user[2]}/10  
+📤 शेयर: {user[3]}/5  
+👥 सफल रेफरल्स: {user[4]}  
+
+🔄 स्टेटस: {'✅ लिमिट पूरी' if user[2] >= 10 else '🟡 अभी और कमा सकते हैं'}
+"""
+    await update.message.reply_text(wallet_message, parse_mode="Markdown")
+
+async def referral(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = get_user(update.effective_user.id)
+    if not user:
+        await update.message.reply_text("कृपया पहले /start करें।")
+        return
+
+    referral_link = f"https://t.me/{BOT_USERNAME}?start={update.effective_user.id}"
+
+    message = f"""
+👥 *Invite & Earn System*  
+
+🔗 आपका लिंक:  
+{referral_link}  
+
+📊 स्टेट्स:  
+• कुल रेफरल्स: {user[4]}  
+• कमाई: {user[4] * 100} पॉइंट्स  
+
+💡 अपने दोस्तों को यह लिंक भेजें।  
+"""
+    keyboard = [[InlineKeyboardButton("📤 शेयर करें", switch_inline_query=referral_link)]]
+    await update.message.reply_text(message, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
+
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    msg = """
+🎬 *Bot Commands*
+
+/start - शुरू करें  
+/wallet - वॉलेट देखें  
+/referral - रेफरल लिंक  
+/help - मदद  
+
+👉 वीडियो देखें, रेफरल करें और पॉइंट्स कमाएं।
+"""
+    await update.message.reply_text(msg, parse_mode="Markdown")
+
+# ================= MAIN =================
+def main():
+    init_db()
+    app = Application.builder().token(BOT_TOKEN).build()
+
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("wallet", wallet))
+    app.add_handler(CommandHandler("referral", referral))
+    app.add_handler(CommandHandler("help", help_command))
+
+    print("🤖 Bot with Invite System is running...")
+    app.run_polling()
+
+if __name__ == "__main__":
+    main()
